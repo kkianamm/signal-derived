@@ -9,7 +9,7 @@ pred_len = 512
 
 
 [data]
-dataset = "PTB-XL"
+dataset = "PTB-XL-Qwen"
 mode = "multivariate"
 cols = "all"
 normalize = true
