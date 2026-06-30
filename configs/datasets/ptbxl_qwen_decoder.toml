@@ -58,7 +58,7 @@ examples = false     # required: build_prompt() reads cfg.examples directly
 enabled = true
 # decoder-only: meta-llama/Llama-2-7b-hf
 # encoder-decoder (best for classification in the paper): google/flan-t5-xl
-llm = "google/flan-t5-xl"
+llm = "meta-llama/Llama-2-7b-hf"
 load_in_4bit = false
 load_in_8bit = false
 llm_layers = -1
