@@ -65,7 +65,16 @@ BAD_LINE_PATTERNS = [
     r"^\s*from the start\b.*$",
     r"^\s*it looks like\b.*$",
     r"^\s*maybe\b.*$",
-]
+    r".*\bcount(?:ing)? the\b.*",
+    r".*\blarge squares?\b.*",
+    r".*\blarge boxes?\b.*",
+    r".*\brate estimation\b.*",
+    r".*\bwait\b.*",
+    r".*\blet'?s\b.*",
+    r".*\blook closer\b.*",
+    r".*\btrace them\b.*",
+    r".*\b300\s*/\b.*",
+    ]
 
 
 SECTION_HEADING_PATTERN = re.compile(
@@ -139,6 +148,23 @@ def clean_description(text: str) -> str:
     # Keep output compact for captions.
     sentences = re.split(r"(?<=[.!?])\s+", text)
     sentences = [s.strip() for s in sentences if s.strip()]
+    bad_sentence_patterns = [
+    r"\bcount(?:ing)? the\b",
+    r"\blarge squares?\b",
+    r"\blarge boxes?\b",
+    r"\brate estimation\b",
+    r"\bwait\b",
+    r"\blet'?s\b",
+    r"\blook closer\b",
+    r"\btrace them\b",
+    r"\b300\s*/\b",
+    r"\bcalculate\b",
+]
+
+sentences = [
+    s for s in sentences
+    if not any(re.search(p, s, flags=re.IGNORECASE) for p in bad_sentence_patterns)
+]
     if len(sentences) > 5:
         text = " ".join(sentences[:5])
 
