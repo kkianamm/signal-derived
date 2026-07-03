@@ -168,7 +168,7 @@ def clean_description(text: str) -> str:
             if len(sentences) > 5:
                 text = " ".join(sentences[:5])
 
-    return text.strip()
+            return text.strip()
 
 
 # ============================================================================
