@@ -145,28 +145,28 @@ def clean_description(text: str) -> str:
         if first > 0:
             text = text[first:].strip()
 
-        # Keep output compact for captions.
-        sentences = re.split(r"(?<=[.!?])\s+", text)
-        sentences = [s.strip() for s in sentences if s.strip()]
-        bad_sentence_patterns = [
-        r"\bcount(?:ing)? the\b",
-        r"\blarge squares?\b",
-        r"\blarge boxes?\b",
-        r"\brate estimation\b",
-        r"\bwait\b",
-        r"\blet'?s\b",
-        r"\blook closer\b",
-        r"\btrace them\b",
-        r"\b300\s*/\b",
-        r"\bcalculate\b",
-    ]
-    
-    sentences = [
-        s for s in sentences
-        if not any(re.search(p, s, flags=re.IGNORECASE) for p in bad_sentence_patterns)
-    ]
-        if len(sentences) > 5:
-            text = " ".join(sentences[:5])
+     # Keep output compact for captions.
+     sentences = re.split(r"(?<=[.!?])\s+", text)
+     sentences = [s.strip() for s in sentences if s.strip()]
+            bad_sentence_patterns = [
+            r"\bcount(?:ing)? the\b",
+            r"\blarge squares?\b",
+            r"\blarge boxes?\b",
+            r"\brate estimation\b",
+            r"\bwait\b",
+            r"\blet'?s\b",
+            r"\blook closer\b",
+            r"\btrace them\b",
+            r"\b300\s*/\b",
+            r"\bcalculate\b",
+        ]
+        
+            sentences = [
+                s for s in sentences
+                if not any(re.search(p, s, flags=re.IGNORECASE) for p in bad_sentence_patterns)
+            ]
+            if len(sentences) > 5:
+                text = " ".join(sentences[:5])
 
     return text.strip()
 
