@@ -27,7 +27,7 @@ Your task is to write ONLY the final ECG medical description.
 Do not mention the user, request, task, image, prompt, or model.
 Do not explain your reasoning.
 Do not show step-by-step analysis.
-Do not count boxes out loud.
+Do not mention counting boxes, large squares, calculations, or visual inspection steps.
 Do not use headings, bullet points, numbered lists, or markdown.
 Do not use phrases such as: "The user wants", "I will", "Let's", "Look at", "It looks like", or "we can see".
 
@@ -37,11 +37,19 @@ Do not invent exact measurements unless they are clearly visible.
 """
 
 
-PROMPT_TEXT = """Generate a concise clinical description of this 12-lead ECG.
+PROMPT_TEXT = """Write one concise clinical ECG description for this 12-lead ECG.
 
-Describe only visible ECG findings from this tracing, including rhythm, approximate rate, PR/QRS/QT intervals if discernible, ST-segment changes, T-wave abnormalities, conduction abnormalities, axis/morphology if visible, and a final clinical impression.
+Rules:
+- Output only the final description.
+- Do not describe how you estimate heart rate.
+- Do not mention counting boxes or large squares.
+- Do not use phrases such as "wait", "look closer", "it looks like", "let's", or "rate estimation".
+- Do not provide calculations.
+- Do not use headings, bullets, markdown, or numbered lists.
+- Use 2 to 4 short clinical sentences.
+- Use cautious language if uncertain.
 
-Return only the final medical description as one short paragraph. No headings. No bullets. No reasoning.
+The description should mention only final visible findings such as rhythm regularity, approximate rate category, QRS morphology, ST-T changes if visible, and overall impression.
 """
 
 
