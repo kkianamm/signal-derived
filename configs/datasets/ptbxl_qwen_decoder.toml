@@ -56,7 +56,7 @@ max_chars = 600
 
 # Train-only stochastic fallback to patient-info-only text.
 # Eval always uses the filtered Qwen text.
-desc_dropout = 0.5
+desc_dropout = 0.0
 dropout_seed = 0
 
 
