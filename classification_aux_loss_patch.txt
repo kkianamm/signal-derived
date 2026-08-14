@@ -1,0 +1,18 @@
+# Your earlier classification.py already used this pattern. Keep/verify it in
+# signal-derived so the new alignment/diversity/auxiliary losses are optimized.
+
+logits = self.model(inputs)
+labels = inputs["labels"].long()
+classification_loss = self.loss_fn(logits, labels)
+
+if hasattr(self.model, "get_auxiliary_losses"):
+    auxiliary_losses = self.model.get_auxiliary_losses()
+else:
+    auxiliary_losses = {}
+
+aux_loss = auxiliary_losses.get(
+    "total",
+    classification_loss.new_zeros(()),
+)
+
+loss = classification_loss + aux_loss

@@ -1,0 +1,5 @@
+# Add to models/__init__.py
+from .medtsllm_convnext_semantic_qformer import MedTsLLMConvNeXtSemanticQFormer
+
+# Add to model_lookup
+"medtsllm_convnext_semantic_qformer": MedTsLLMConvNeXtSemanticQFormer,
