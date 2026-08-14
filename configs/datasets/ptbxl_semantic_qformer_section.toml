@@ -1,0 +1,33 @@
+# Merge this section into a COPY of your working ptbxl_image_fusion.toml.
+# Keep dataset/splits/preprocessing/optimizer/LLM/image-generation unchanged.
+
+[models.medtsllm.convnext_semantic_qformer]
+q_dim = 512
+q_queries = 32
+semantic_queries = 5
+q_depth = 4
+q_heads = 8
+dropout = 0.10
+class_descriptions = [
+  "a normal electrocardiogram with normal rhythm and normal cardiac morphology",
+  "an electrocardiogram with morphology associated with myocardial infarction",
+  "an electrocardiogram showing ST segment or T wave abnormalities",
+  "an electrocardiogram showing a cardiac conduction disturbance",
+  "an electrocardiogram showing ventricular or atrial hypertrophy patterns",
+]
+
+[models.medtsllm.convnext_semantic_qformer.convnext]
+variant = "tiny"
+pretrained = true
+freeze = true
+unfreeze_last_n = 0
+save_frozen_backbone = false
+
+[models.medtsllm.convnext_semantic_qformer.loss]
+med_ce = 0.10
+image_ce = 0.10
+query_ce = 0.10
+alignment = 0.05
+query_diversity = 0.01
+biomedcoop = 1.00
+alignment_temperature = 0.10
