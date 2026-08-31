@@ -7,7 +7,7 @@ from .bidmc import bidmc_datasets
 from .ludb import ludb_datasets
 from .dreams import dreams_datasets
 from .ptbxl import ptbxl_datasets
-
+from .ptbxl_image_fusion import PTBXLImageFusionDataset
 from .util import multi_2_uni_dataset
 from .util import PretrainingDataset
 from .ptbxl_qwen import ptbxl_qwen_datasets
@@ -27,7 +27,9 @@ dataset_lookup = {
     "dreams": dreams_datasets,
     "PTB-XL": ptbxl_datasets,
     "PTB-XL-Qwen": ptbxl_qwen_datasets,
-    "PTB-XL-ImageFusion": ptbxl_image_fusion_datasets,
+    "PTB-XL-ImageFusion": {
+    "classification": PTBXLImageFusionDataset,
+},
 }
 
 def get_dataset(config, split):
