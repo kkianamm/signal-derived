@@ -1,0 +1,118 @@
+DEBUG = false
+
+task = "classification"
+model = "medtsllm_convnext_hierarchical_semantic_router"
+
+# Paper (Table III): Class.-PTB-XL  history=512  patch=32  stride=16
+history_len = 512
+pred_len = 512
+
+
+[data]
+dataset = "PTB-XL-ImageFusion"
+mode = "multivariate"
+cols = "all"
+normalize = true
+step = 512
+
+
+[training]
+epochs = 20
+batch_size = 16
+optimizer = "adam"
+learning_rate = 1e-4
+dropout = 0.1
+loss = "ce"
+
+eval_metric = "accuracy"
+eval_metric_direction = "max"
+
+
+[datasets.PTB-XL]
+version = "v1"
+
+
+[models.medtsllm]
+d_model = 32
+d_ff = 128
+n_heads = 8
+num_tokens = 1024
+# concatenation preserves inter-lead relationships (good for 12-lead ECG).
+covariate_mode = "concat"
+embedding_downsample_mode = "linear"
+
+[models.medtsllm.patching]
+patch_len = 32
+stride = 16
+
+[models.medtsllm.prompting]
+input_stats_dim = 0
+input_stats_select = "all"
+dataset = true
+task = true
+clip = true          # patient-specific info (age/sex as JSON) -- the paper's biggest single gain
+input_stats = false
+examples = false     # required: build_prompt() reads cfg.examples directly
+
+[models.medtsllm.llm]
+enabled = true
+# decoder-only: meta-llama/Llama-2-7b-hf
+# encoder-decoder (best for classification in the paper): google/flan-t5-xl
+llm = "google/flan-t5-xl"
+load_in_4bit = false
+load_in_8bit = false
+llm_layers = -1
+
+
+[setup]
+seed = 0
+device = "auto"
+dtype = "mixed"
+num_workers = "auto"
+logger = "print"
+
+[models.medtsllm.hierarchical_semantic_router]
+q_dim = 512
+semantic_queries = 5
+depth = 3
+heads = 8
+dropout = 0.10
+feature_wise_gate = true
+max_query_delta = 0.35
+direct_logit_weight_init = -1.4
+
+class_descriptions = [
+  "a normal electrocardiogram with normal rhythm and normal cardiac morphology",
+  "an electrocardiogram with morphology associated with myocardial infarction",
+  "an electrocardiogram showing ST segment or T wave abnormalities",
+  "an electrocardiogram showing a cardiac conduction disturbance",
+  "an electrocardiogram showing ventricular or atrial hypertrophy patterns",
+]
+
+morphology_descriptions = [
+  "normal cardiac rhythm and normal electrocardiographic morphology",
+  "ST segment elevation or depression indicating abnormal ventricular repolarization",
+  "T wave inversion flattening or other abnormal T wave morphology",
+  "pathological Q waves or loss of normal R wave progression associated with infarction",
+  "widened or otherwise abnormal QRS complexes indicating ventricular conduction disturbance",
+  "abnormal atrioventricular conduction or PR interval morphology",
+  "high voltage or altered depolarization morphology associated with cardiac hypertrophy",
+  "abnormal ventricular repolarization morphology involving ST and T wave patterns",
+]
+
+[models.medtsllm.hierarchical_semantic_router.convnext]
+variant = "tiny"
+pretrained = true
+freeze = true
+unfreeze_last_n = 0
+save_frozen_backbone = false
+
+[models.medtsllm.hierarchical_semantic_router.loss]
+med_ce = 0.10
+image_ce = 0.10
+query_ce = 0.10
+query_consistency = 0.02
+query_diversity = 0.01
+semantic_anchor = 0.02
+biomedcoop = 1.00
+
