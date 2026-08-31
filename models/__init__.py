@@ -6,6 +6,9 @@ from .gpt4ts import GPT4TS
 from .medtsllm_convnext_hierarchical_semantic_router import (
     MedTsLLMConvNeXtHierarchicalSemanticRouter,
 )
+from .medtsllm_convnext_concept_reliability_moe import (
+    MedTsLLMConvNeXtConceptReliabilityMoE,
+)
 from .dlinear import DLinear
 from .FEDformer import FEDformer
 from .PatchTST import PatchTST
@@ -24,4 +27,5 @@ model_lookup = {
     "timesnet": TimesNet,
     "medtsllm_convnext_hierarchical_semantic_router":
     MedTsLLMConvNeXtHierarchicalSemanticRouter,
+    "medtsllm_convnext_concept_reliability_moe": MedTsLLMConvNeXtConceptReliabilityMoE,
 }
