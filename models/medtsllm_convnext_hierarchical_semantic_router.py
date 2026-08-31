@@ -94,6 +94,7 @@ class ConvNeXtSpatialTokenEncoder(nn.Module):
                 for p in block.parameters():
                     p.requires_grad = True
 
+
     def forward(self, image: Tensor) -> Tensor:
         if image.ndim != 4:
             raise ValueError(f"image must be [B,C,H,W], got {tuple(image.shape)}")
@@ -236,17 +237,70 @@ class MedTsLLMConvNeXtHierarchicalSemanticRouter(MedTsLLM):
                 return value
         raise KeyError("No image tensor found; expected inputs['x_image'] (or image/images)")
 
-    def _encode_prompts(self, inputs: dict[str, Any], dtype: torch.dtype) -> Tensor:
+    def _encode_prompts(
+        self,
+        inputs: dict[str, Any],
+        dtype: torch.dtype,
+    ):
         x_enc = inputs["x_enc"]
         batch = x_enc.size(0)
+
         prompts = self.build_prompt(inputs)
+
         if not prompts or not prompts[0]:
-            return torch.zeros(batch, 0, self.d_llm, device=x_enc.device, dtype=dtype)
-        encoded = [[self.encode_part(part) for part in prompt] for prompt in prompts]
-        encoded = [torch.cat(parts, dim=1) for parts in encoded]
+            prompt_tokens = torch.zeros(
+                batch,
+                0,
+                self.d_llm,
+                device=x_enc.device,
+                dtype=dtype,
+            )
+            prompt_mask = torch.ones(
+                batch,
+                0,
+                device=x_enc.device,
+                dtype=torch.long,
+            )
+            return prompt_tokens, prompt_mask
+
+        encoded = [
+            [self.encode_part(part) for part in prompt]
+            for prompt in prompts
+        ]
+
+        encoded = [
+            torch.cat(parts, dim=1)
+            for parts in encoded
+        ]
+
         max_len = max(item.size(1) for item in encoded)
-        encoded = [self.pad_sequence(item, max_len) for item in encoded]
-        return torch.cat(encoded, dim=0).to(device=x_enc.device, dtype=dtype)
+
+        padded = [
+            self.pad_sequence(item, max_len)
+            for item in encoded
+        ]
+
+        prompt_tokens = torch.cat(
+            [item[0] for item in padded],
+            dim=0,
+        )
+
+        prompt_mask = torch.cat(
+            [item[1] for item in padded],
+            dim=0,
+        )
+
+        prompt_tokens = prompt_tokens.to(
+            device=x_enc.device,
+            dtype=dtype,
+        )
+
+        prompt_mask = prompt_mask.to(
+            device=x_enc.device,
+        )
+
+        return prompt_tokens, prompt_mask
+
 
     @torch.no_grad()
     def _build_text_banks(self, device: torch.device) -> None:
@@ -255,41 +309,106 @@ class MedTsLLMConvNeXtHierarchicalSemanticRouter(MedTsLLM):
             for text in self.class_descriptions:
                 emb = self.encode_part(text)
                 if emb.ndim != 3:
-                    raise RuntimeError(f"encode_part must return [1,L,D], got {tuple(emb.shape)}")
+                    raise RuntimeError(
+                        f"encode_part must return [1,L,D], got {tuple(emb.shape)}"
+                    )
                 vecs.append(emb.mean(dim=1).squeeze(0))
-            self._diagnosis_text_embeddings = torch.stack(vecs).detach().to(device=device)
+            self._diagnosis_text_embeddings = (
+                torch.stack(vecs).detach().to(device=device)
+            )
+
         if self._morphology_text_embeddings.numel() == 0:
             vecs = []
             for text in self.morphology_descriptions:
                 emb = self.encode_part(text)
                 if emb.ndim != 3:
-                    raise RuntimeError(f"encode_part must return [1,L,D], got {tuple(emb.shape)}")
+                    raise RuntimeError(
+                        f"encode_part must return [1,L,D], got {tuple(emb.shape)}"
+                    )
                 vecs.append(emb.mean(dim=1).squeeze(0))
-            self._morphology_text_embeddings = torch.stack(vecs).detach().to(device=device)
+            self._morphology_text_embeddings = (
+                torch.stack(vecs).detach().to(device=device)
+            )
 
-    def _semantic_banks(self, device: torch.device, dtype: torch.dtype) -> tuple[Tensor, Tensor]:
+    def _semantic_banks(
+        self,
+        device: torch.device,
+        dtype: torch.dtype,
+    ) -> tuple[Tensor, Tensor]:
         self._build_text_banks(device)
-        d = self.diagnosis_projection(self._diagnosis_text_embeddings.to(device=device, dtype=dtype))
-        d = d + self.diagnosis_delta.to(device=device, dtype=dtype)
-        m = self.morphology_projection(self._morphology_text_embeddings.to(device=device, dtype=dtype))
-        return d, m
 
-    def _run_llm(self, prompt_tokens: Tensor, soft_queries: Tensor) -> Tensor:
+        diagnosis = self.diagnosis_projection(
+            self._diagnosis_text_embeddings.to(
+                device=device,
+                dtype=dtype,
+            )
+        )
+        diagnosis = diagnosis + self.diagnosis_delta.to(
+            device=device,
+            dtype=dtype,
+        )
+
+        morphology = self.morphology_projection(
+            self._morphology_text_embeddings.to(
+                device=device,
+                dtype=dtype,
+            )
+        )
+
+        return diagnosis, morphology
+
+    def _run_llm(
+        self,
+        prompt_tokens: Tensor,
+        prompt_mask: Tensor,
+        soft_queries: Tensor,
+    ) -> Tensor:
         soft_queries = soft_queries.to(dtype=prompt_tokens.dtype)
+
         if self.llm.config.is_encoder_decoder:
             out = self.llm(
                 inputs_embeds=prompt_tokens,
+                attention_mask=prompt_mask,
                 decoder_inputs_embeds=soft_queries,
             ).last_hidden_state
-            return out[:, -soft_queries.size(1):].to(soft_queries.dtype)
-        llm_input = torch.cat([prompt_tokens, soft_queries], dim=1)
-        out = self.llm(inputs_embeds=llm_input).last_hidden_state
-        return out[:, -soft_queries.size(1):].to(soft_queries.dtype)
+
+            return out[:, -soft_queries.size(1):].to(
+                soft_queries.dtype
+            )
+
+        llm_input = torch.cat(
+            [prompt_tokens, soft_queries],
+            dim=1,
+        )
+
+        query_mask = torch.ones(
+            soft_queries.size(0),
+            soft_queries.size(1),
+            device=soft_queries.device,
+            dtype=torch.long,
+        )
+
+        attention_mask = torch.cat(
+            [prompt_mask, query_mask],
+            dim=1,
+        )
+
+        out = self.llm(
+            inputs_embeds=llm_input,
+            attention_mask=attention_mask,
+        ).last_hidden_state
+
+        return out[:, -soft_queries.size(1):].to(
+            soft_queries.dtype
+        )
 
     def _branch_loss(self, logits: Tensor, labels: Tensor) -> Tensor:
         if self.n_classes > 2:
             return F.cross_entropy(logits, labels.long())
-        return F.binary_cross_entropy_with_logits(logits.squeeze(-1), labels.to(logits.dtype))
+        return F.binary_cross_entropy_with_logits(
+            logits.squeeze(-1),
+            labels.to(logits.dtype),
+        )
 
     def _set_auxiliary_losses(
         self,
@@ -304,26 +423,52 @@ class MedTsLLMConvNeXtHierarchicalSemanticRouter(MedTsLLM):
         labels: Optional[Tensor],
     ) -> None:
         zero = query_repr.new_zeros(())
+
         bc_aux = zero
         if self.use_biomedcoop and hasattr(self, "bc_head"):
             current = getattr(self.bc_head, "aux_loss", None)
             if current is not None:
                 bc_aux = current
+
         raw = {
             "med_ce": zero,
             "image_ce": zero,
             "query_ce": zero,
-            "query_consistency": query_specific_consistency_loss(signal_evidence, image_evidence),
+            "query_consistency": query_specific_consistency_loss(
+                signal_evidence,
+                image_evidence,
+            ),
             "query_diversity": query_diversity_loss(queries),
-            "semantic_anchor": semantic_anchor_loss(adapted_queries, structured_queries),
+            "semantic_anchor": semantic_anchor_loss(
+                adapted_queries,
+                structured_queries,
+            ),
             "biomedcoop": bc_aux,
         }
+
         if labels is not None:
-            raw["med_ce"] = self._branch_loss(self.med_aux_head(med_repr), labels)
-            raw["image_ce"] = self._branch_loss(self.image_aux_head(image_repr), labels)
-            raw["query_ce"] = self._branch_loss(self.query_aux_head(query_repr), labels)
-        weighted = {k: v * self.loss_weights[k] for k, v in raw.items()}
-        weighted["total"] = torch.stack(tuple(weighted.values())).sum()
+            raw["med_ce"] = self._branch_loss(
+                self.med_aux_head(med_repr),
+                labels,
+            )
+            raw["image_ce"] = self._branch_loss(
+                self.image_aux_head(image_repr),
+                labels,
+            )
+            raw["query_ce"] = self._branch_loss(
+                self.query_aux_head(query_repr),
+                labels,
+            )
+
+        weighted = {
+            name: value * self.loss_weights[name]
+            for name, value in raw.items()
+        }
+
+        weighted["total"] = torch.stack(
+            tuple(weighted.values())
+        ).sum()
+
         self._auxiliary_losses = weighted
         self.aux_loss = weighted["total"]
 
@@ -367,8 +512,16 @@ class MedTsLLMConvNeXtHierarchicalSemanticRouter(MedTsLLM):
 
         # LLM contextualization of diagnosis-specific fused evidence.
         soft_queries = self.q_to_llm(queries)
-        prompt_tokens = self._encode_prompts(inputs, dtype=soft_queries.dtype)
-        llm_query_tokens = self._run_llm(prompt_tokens, soft_queries)
+        prompt_tokens, prompt_mask = self._encode_prompts(
+            inputs,
+            dtype=soft_queries.dtype,
+        )
+
+        llm_query_tokens = self._run_llm(
+            prompt_tokens,
+            prompt_mask,
+            soft_queries,
+        )
         sample_repr = self.llm_pool(llm_query_tokens)
 
         labels = inputs.get("labels") if self.training else None
