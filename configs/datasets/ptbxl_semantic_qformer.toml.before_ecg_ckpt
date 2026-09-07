@@ -1,0 +1,105 @@
+DEBUG = false
+task = "classification"
+model = "medtsllm_convnext_semantic_qformer"
+history_len = 512
+pred_len = 512
+
+[data]
+dataset = "PTB-XL-ImageFusion"
+mode = "multivariate"
+cols = "all"
+normalize = true
+step = 512
+
+[training]
+epochs = 20
+batch_size = 16
+optimizer = "adam"
+learning_rate = 1e-4
+dropout = 0.1
+loss = "ce"
+eval_metric = "accuracy"
+eval_metric_direction = "max"
+save_best = true
+early_stopping_patience = 5
+
+[setup]
+seed = 0
+device = "auto"
+dtype = "mixed"
+num_workers = "auto"
+logger = "print"
+
+[datasets.PTB-XL]
+version = "v1"
+
+[models.medtsllm]
+d_model = 32
+d_ff = 128
+n_heads = 8
+num_tokens = 1024
+covariate_mode = "concat"
+embedding_downsample_mode = "linear"
+
+[models.image_fusion]
+backbone = "convnext_tiny"
+checkpoint = "runs/ptbxl_image_clf/best.pt"
+image_root = "data/ptbxl_images"
+img_size = 224
+fusion_dim = 512
+dropout = 0.1
+
+[models.qformer_fusion]
+num_queries = 16
+dim = 512
+depth = 2
+heads = 8
+dropout = 0.1
+mlp_ratio = 4.0
+use_global_residual = true
+gate_init = -3.0
+
+[models.medtsllm.patching]
+patch_len = 32
+stride = 16
+
+[models.medtsllm.prompting]
+input_stats_dim = 0
+input_stats_select = "all"
+dataset = true
+task = true
+clip = true
+input_stats = false
+examples = false
+
+[models.medtsllm.llm]
+enabled = true
+llm = "google/flan-t5-xl"
+load_in_4bit = false
+load_in_8bit = false
+llm_layers = -1
+
+[models.medtsllm.convnext_semantic_qformer]
+q_dim = 512
+q_queries = 32
+semantic_queries = 5
+q_depth = 4
+q_heads = 8
+dropout = 0.1
+class_descriptions = [ "a normal electrocardiogram with normal rhythm and normal cardiac morphology", "an electrocardiogram with morphology associated with myocardial infarction", "an electrocardiogram showing ST segment or T wave abnormalities", "an electrocardiogram showing a cardiac conduction disturbance", "an electrocardiogram showing ventricular or atrial hypertrophy patterns",]
+
+[models.medtsllm.convnext_semantic_qformer.convnext]
+variant = "tiny"
+pretrained = true
+freeze = true
+unfreeze_last_n = 0
+save_frozen_backbone = false
+
+[models.medtsllm.convnext_semantic_qformer.loss]
+med_ce = 0.1
+image_ce = 0.1
+query_ce = 0.1
+alignment = 0.05
+query_diversity = 0.01
+biomedcoop = 1.0
+alignment_temperature = 0.1
