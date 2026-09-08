@@ -1,5 +1,4 @@
 from .medtsllm import MedTsLLM
-from .medtsllm_convnext_semantic_qformer import MedTsLLMConvNeXtSemanticQFormer
 from .medtsllm_qformer_fusion import MedTsLLMQFormerFusion
 
 from .gpt4ts import GPT4TS
@@ -11,7 +10,6 @@ from .TimesNet import TimesNet
 
 
 model_lookup = {
-    "medtsllm_convnext_semantic_qformer": MedTsLLMConvNeXtSemanticQFormer,
     "timellm": MedTsLLM,
     "medtsllm": MedTsLLM,
 
